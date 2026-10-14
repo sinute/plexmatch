@@ -1,4 +1,4 @@
-module github.com/sinute/plexmatch/v2
+module github.com/sinute/plexmatch
 
 go 1.20
 

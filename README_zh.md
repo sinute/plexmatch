@@ -11,10 +11,10 @@ plexmatch 提供了结构化解析和生成 [.plexmatch](https://support.plex.tv
 * 模式提示 —— `pattern`/`pt` 及其匹配 token
 * `#` 注释、空行、大小写不敏感的提示名与 CRLF 换行
 
-模块路径为 `github.com/sinute/plexmatch/v2`；从 v1 升级只需改几处命名，见[从 v1 升级](#从-v1-升级)。
+模块路径为 `github.com/sinute/plexmatch`。本次发布调整了 API，见[与上一版本的差异](#与上一版本的差异)。
 
 ```
-go get github.com/sinute/plexmatch/v2
+go get github.com/sinute/plexmatch
 ```
 
 # 如何使用
@@ -27,7 +27,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/sinute/plexmatch/v2"
+	"github.com/sinute/plexmatch"
 )
 
 func main() {
@@ -79,7 +79,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/sinute/plexmatch/v2"
+	"github.com/sinute/plexmatch"
 )
 
 func main() {
@@ -136,24 +136,19 @@ for _, ep := range p.Episodes {
 
 `S00Exx` 会被读取为特别篇，写回时为 `SPxx`。
 
-# 从 v1 升级
+# 与上一版本的差异
 
-v2 读取了 v1 无法处理的那些格式内容，因此 API 有所调整。它是一个独立模块，尚未迁移的代码可以继续使用 v1。
-
-## 1. 修改导入路径
+本次发布读取了上一版本无法处理的那些格式内容，因此 API 有所调整。模块路径保持不变，更新只需一条命令：
 
 ```
-go get github.com/sinute/plexmatch/v2
+go get github.com/sinute/plexmatch
 ```
 
-```diff
--import "github.com/sinute/plexmatch"
-+import "github.com/sinute/plexmatch/v2"
-```
+以下就是已有调用方需要改动的地方。
 
-## 2. 重命名两个字段
+## 1. 重命名两个字段
 
-| v1                               | v2                     | 原因                                                                                     |
+| 旧版                             | 现在                   | 原因                                                                                     |
 | -------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------- |
 | `PlexMatch.Show`                 | `PlexMatch.Title`      | 格式中 `title` 与 `show` 是同义词，两种提示都写入 `Title`，文件不会再自相矛盾。            |
 | `Episode.ID`                     | `Episode.Episode`      | 集号，与新增的 `Season`、`LastEpisode`、`LastSeason` 放在一起。                            |
@@ -177,9 +172,9 @@ go get github.com/sinute/plexmatch/v2
 
 如果你设置了 `Show`，请改设 `Title`；如果解析后读取 `Show`，请改读 `Title` —— 现在 `show:` 提示写入的是 `Title`。
 
-## 3. 检查编译器不会提醒你的行为变化
+## 2. 检查编译器不会提醒你的行为变化
 
-* **`Marshal` 不再丢弃提示。** v1 会为每一集只写出一条提示，保留先出现的文件名。现在 `Marshal` 会写出你给它的每一条提示，因此读入再写出不会丢失任何内容。若你依赖旧行为，请先调用 `Unique`：
+* **`Marshal` 不再丢弃提示。** 旧版会为每一集只写出一条提示，保留先出现的文件名。现在 `Marshal` 会写出你给它的每一条提示，因此读入再写出不会丢失任何内容。若你依赖旧行为，请先调用 `Unique`：
 
   ```diff
   -out := plexmatch.Marshal(p)
@@ -188,7 +183,7 @@ go get github.com/sinute/plexmatch/v2
 
 * **`Marshal` 不再就地排序你传入的切片。** 它仍会按季与集号排序（特别篇在最前），但排的是副本，你传入的 `PlexMatch` 不会被改动。
 
-* **`Unmarshal` 会对 v1 误读的行报错。** v1 既会忽略不认识的提示，也会拒绝一些本应接受的写法。现在完全不是提示的行（缺少冒号、空值、非法集号）会返回 `*plexmatch.SyntaxError`，其中带有行号、原文与说明；出错之前已读到的内容仍会一并返回：
+* **`Unmarshal` 会对旧版误读的行报错。** 旧版既会忽略不认识的提示，也会拒绝一些本应接受的写法。现在完全不是提示的行（缺少冒号、空值、非法集号）会返回 `*plexmatch.SyntaxError`，其中带有行号、原文与说明；出错之前已读到的内容仍会一并返回：
 
   ```go
   p, err := plexmatch.Unmarshal(data)
@@ -200,12 +195,12 @@ go get github.com/sinute/plexmatch/v2
 
 * **不认识的提示会被保留，而不是被拒绝。** 本库不认识的指令会作为 `UnknownHint` 放入 `PlexMatch.UnknownHints` 并原样写出，因此更新版本的 Plex Media Server 才能读懂的文件，经过本库往返读写也不会丢失内容。
 
-## 4. 按需使用新增能力
+## 3. 按需使用新增能力
 
-这些都不是必改项，但正是 v2 存在的理由：
+这些都不是必改项，但正是本次重写的意义所在：
 
-* `PlexMatch.GUID` —— `guid` 提示；v1 的文法里虽然定义了它的 token，却从未真正读取。
-* `PlexMatch.Patterns` —— `pattern`/`pt` 提示及其匹配 token，v1 完全不支持。
+* `PlexMatch.GUID` —— `guid` 提示；旧版的文法里虽然定义了它的 token，却从未真正读取。
+* `PlexMatch.Patterns` —— `pattern`/`pt` 提示及其匹配 token，旧版完全不支持。
 * `ep` 提示现在支持 `E02`、`S03E04` 写法与 `01-02`、`S01E01-E02` 这类跨集区间；`imdbid` 可以带 `tt` 前缀。
 * 支持注释、空行、CRLF 换行与 BOM；提示名不区分大小写。
 * 新增 `Validate`、`Unique`、`Merge`。

@@ -11,10 +11,10 @@ It reads the whole format:
 * pattern hints — `pattern`/`pt`, with their match tokens
 * `#` comments, blank lines, case-insensitive hint names and CRLF line endings
 
-The module path is `github.com/sinute/plexmatch/v2`, and upgrading from v1 is a few renames; see [Upgrading from v1](#upgrading-from-v1).
+The module path is `github.com/sinute/plexmatch`. This release moves the API; see [Changes from the previous version](#changes-from-the-previous-version).
 
 ```
-go get github.com/sinute/plexmatch/v2
+go get github.com/sinute/plexmatch
 ```
 
 # Usage
@@ -27,7 +27,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/sinute/plexmatch/v2"
+	"github.com/sinute/plexmatch"
 )
 
 func main() {
@@ -79,7 +79,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/sinute/plexmatch/v2"
+	"github.com/sinute/plexmatch"
 )
 
 func main() {
@@ -136,24 +136,19 @@ for _, ep := range p.Episodes {
 
 `S00Exx` is read as a special and written back as `SPxx`.
 
-# Upgrading from v1
+# Changes from the previous version
 
-v2 reads the parts of the format v1 could not, which moved the API. It is a separate module, so v1 keeps working for code that has not moved yet.
-
-## 1. Change the import path
+This release reads the parts of the format the previous version could not, which moved the API. The module keeps its path, so updating is one command:
 
 ```
-go get github.com/sinute/plexmatch/v2
+go get github.com/sinute/plexmatch
 ```
 
-```diff
--import "github.com/sinute/plexmatch"
-+import "github.com/sinute/plexmatch/v2"
-```
+Everything below is what an existing caller has to change.
 
-## 2. Rename two fields
+## 1. Rename two fields
 
-| v1                     | v2                     | Why                                                                                     |
+| Before                 | Now                    | Why                                                                                     |
 | ---------------------- | ---------------------- | --------------------------------------------------------------------------------------- |
 | `PlexMatch.Show`       | `PlexMatch.Title`      | `title` and `show` are synonyms in the format, so both hints set `Title` and a file can no longer disagree with itself. |
 | `Episode.ID`           | `Episode.Episode`      | The episode number, now beside `Season`, `LastEpisode` and `LastSeason`.                 |
@@ -177,9 +172,9 @@ go get github.com/sinute/plexmatch/v2
 
 If you set `Show`, set `Title` instead. If you read `Show` after `Unmarshal`, read `Title`: a `show:` hint now fills `Title`.
 
-## 3. Check for the changes the compiler will not catch
+## 2. Check for the changes the compiler will not catch
 
-* **`Marshal` no longer drops hints.** v1 silently wrote one hint per episode, keeping whichever file name came first. `Marshal` now writes every hint it is given, so nothing is lost between reading a file and writing it back. If you relied on the old behaviour, call `Unique` first:
+* **`Marshal` no longer drops hints.** The previous version silently wrote one hint per episode, keeping whichever file name came first. `Marshal` now writes every hint it is given, so nothing is lost between reading a file and writing it back. If you relied on the old behaviour, call `Unique` first:
 
   ```diff
   -out := plexmatch.Marshal(p)
@@ -188,7 +183,7 @@ If you set `Show`, set `Title` instead. If you read `Show` after `Unmarshal`, re
 
 * **`Marshal` no longer sorts your slice in place.** It still writes the episodes sorted by season and episode number with specials first, but it sorts a copy, so a `PlexMatch` you pass in is unchanged.
 
-* **`Unmarshal` fails on lines v1 misread.** v1 ignored a hint it did not recognise and rejected some it should have accepted. Now a line that is not a hint at all — no colon, an empty value, a bad episode number — is an error, reported as a `*plexmatch.SyntaxError` carrying the line number, the offending text and a message. The hints read before it are still returned:
+* **`Unmarshal` fails on lines the previous version misread.** It ignored a hint it did not recognise and rejected some it should have accepted. Now a line that is not a hint at all — no colon, an empty value, a bad episode number — is an error, reported as a `*plexmatch.SyntaxError` carrying the line number, the offending text and a message. The hints read before it are still returned:
 
   ```go
   p, err := plexmatch.Unmarshal(data)
@@ -200,12 +195,12 @@ If you set `Show`, set `Title` instead. If you read `Show` after `Unmarshal`, re
 
 * **An unknown hint is kept, not rejected.** A directive this package does not know ends up in `PlexMatch.UnknownHints` as an `UnknownHint` and is written back out, so a file that a newer Plex Media Server understands survives a round trip through this package.
 
-## 4. Take up what is new
+## 3. Take up what is new
 
-None of it is required, but it is why v2 exists:
+None of it is required, but it is the point of the rewrite:
 
-* `PlexMatch.GUID` — the `guid` hint, which v1's grammar had a token for but never read.
-* `PlexMatch.Patterns` — `pattern`/`pt` hints and their match tokens, which v1 did not support at all.
+* `PlexMatch.GUID` — the `guid` hint, which the previous parser had a token for but never read.
+* `PlexMatch.Patterns` — `pattern`/`pt` hints and their match tokens, which the previous version did not support at all.
 * Episode hints now accept the `E02` and `S03E04` forms, multi-episode ranges such as `01-02` and `S01E01-E02`, and the `tt` prefix on `imdbid`.
 * Comments, blank lines, CRLF line endings and a byte order mark are handled, and hint names are matched case-insensitively.
 * `Validate`, `Unique` and `Merge`.
